@@ -7,16 +7,21 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Clinic.Data;
 using Clinic.Models;
-using PagedList.Mvc;
 using PagedList;
-using ReflectionIT.Mvc.Paging;
+using PagedList.Mvc;
+using System.Net.Http.Headers;
+using System.Net.Http;
+using Newtonsoft.Json;
+using System.IO;
+using System.Net;
 
 namespace Clinic.Controllers
 {
     public class DoctorsController : Controller
     {
         private readonly ApplicationDbContext _context;
-       
+
+        public ActionResult Country { get; private set; }
 
         public DoctorsController(ApplicationDbContext context)
         {
@@ -24,7 +29,7 @@ namespace Clinic.Controllers
         }
 
         // GET: Doctors
-        public async Task<IActionResult> Index(string sortOrder)
+        public async Task<IActionResult> Index(string sortOrder, int ? Page)
         {
 
             ViewData["NameSortPram"] = String.IsNullOrEmpty(sortOrder) ? "name_desc" : " ";
@@ -39,9 +44,11 @@ namespace Clinic.Controllers
                     Doctor = Doctor.OrderBy(s => s.FirstName);
                     break;
             }
+            
 
            
-            return View(await Doctor.AsNoTracking().ToListAsync());
+            return View( Doctor.ToList().ToPagedList(Page ?? 1,3)); 
+
         }
 
         // GET: Doctors/Details/5
@@ -64,8 +71,9 @@ namespace Clinic.Controllers
         }
 
         // GET: Doctors/Create
-        public IActionResult Create()
+        public async Task<IActionResult> CreateAsync()
         {
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
             ViewData["SpecializationId"] = new SelectList(_context.Specialization, "Id", "SpecializationName");
             return View();
         }
@@ -75,7 +83,7 @@ namespace Clinic.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,FirstName,LastName,Address,Notes,MonthlySalary,PhoneNumber,IBAN,Email,SpecializationId")] Doctor doctor)
+        public async Task<IActionResult> Create([Bind("Id,FirstName,LastName,Address,Notes,MonthlySalary,PhoneNumber,IBAN,Email,SpecializationId,Country")] Doctor doctor)
         {
             if (ModelState.IsValid)
             {
@@ -83,6 +91,7 @@ namespace Clinic.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
             ViewData["SpecializationId"] = new SelectList(_context.Specialization, "Id", "SpecializationName", doctor.SpecializationId);
             return View(doctor);
         }
@@ -100,6 +109,7 @@ namespace Clinic.Controllers
             {
                 return NotFound();
             }
+            ViewData["CountryModel"] = new SelectList( await this.GetCountry(), "name", "name");
             ViewData["SpecializationId"] = new SelectList(_context.Specialization, "Id", "SpecializationName", doctor.SpecializationId);
             return View(doctor);
         }
@@ -109,7 +119,7 @@ namespace Clinic.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Id,FirstName,LastName,Address,Notes,MonthlySalary,PhoneNumber,IBAN,Email,SpecializationId")] Doctor doctor)
+        public async Task<IActionResult> Edit(long id, [Bind("Id,FirstName,LastName,Address,Notes,MonthlySalary,PhoneNumber,IBAN,Email,SpecializationId,Country")] Doctor doctor)
         {
             if (id != doctor.Id)
             {
@@ -136,7 +146,8 @@ namespace Clinic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
-            ViewData["SpecializationId"] = new SelectList(_context.Specialization, "Id", "Id", doctor.SpecializationId);
+            ViewData["CountryModel"] = new SelectList( await this.GetCountry(), "name", "name");
+            ViewData["SpecializationId"] = new SelectList(_context.Specialization, "Id", "SpecializationName", doctor.SpecializationId);
             return View(doctor);
         }
 
@@ -186,5 +197,42 @@ namespace Clinic.Controllers
 
             return View(result);
         }
+        public async Task< IEnumerable<CountryModel>> GetCountry()
+        {
+            
+                string url = "https://restcountries.eu/rest/v1/all";
+            List<CountryModel> Country = new List<CountryModel>();
+
+                // Web Request with the given url.
+                WebRequest request = WebRequest.Create(url);
+                request.Credentials = CredentialCache.DefaultCredentials;
+
+                WebResponse response = request.GetResponse();
+
+                Stream dataStream = response.GetResponseStream();
+                StreamReader reader = new StreamReader(dataStream);
+
+                string jsonResponse = null;
+
+                // Store the json response into jsonResponse variable.
+                jsonResponse = reader.ReadLine();
+
+                if (jsonResponse != null)
+                {
+                    // Deserialize the jsonRespose object to the CountryModel. You're getting a JSON array [].
+                    List<CountryModel> countryModel = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CountryModel>>(jsonResponse);
+
+                    // Set the List Item with the countries.
+                    IEnumerable<SelectListItem> countries = countryModel.Select(x => new SelectListItem() { Value = x.name, Text = x.name });
+
+                    // Create a ViewBag property with the final content.
+                    ViewBag.Countries = countries;
+                }
+                return Country;
+            }
+        }
+
+
+
     }
-}
+

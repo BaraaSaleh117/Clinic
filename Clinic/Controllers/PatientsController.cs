@@ -7,6 +7,9 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Clinic.Data;
 using Clinic.Models;
+using System.Net;
+using System.Collections;
+using System.IO;
 
 namespace Clinic.Controllers
 {
@@ -38,7 +41,7 @@ namespace Clinic.Controllers
 
             return View(await Patient.AsNoTracking().ToListAsync());
         }
-    
+
 
         // GET: Patient/Details/5
         public async Task<IActionResult> Details(long? id)
@@ -59,8 +62,10 @@ namespace Clinic.Controllers
         }
 
         // GET: Patient/Create
-        public IActionResult Create()
+
+        public async Task<IActionResult> CreateAsync()
         {
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
             return View();
         }
 
@@ -69,7 +74,7 @@ namespace Clinic.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,FirstName,LastName,Birthday,Gender,PhoneNumber,Email,Address,RegisterationDate,SSN")] Patient patient)
+        public async Task<IActionResult> Create([Bind("Id,FirstName,LastName,Birthday,Gender,PhoneNumber,Email,Address,RegisterationDate,SSN,Country")] Patient patient)
         {
             if (ModelState.IsValid)
             {
@@ -77,6 +82,7 @@ namespace Clinic.Controllers
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
             return View(patient);
         }
 
@@ -93,15 +99,14 @@ namespace Clinic.Controllers
             {
                 return NotFound();
             }
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
             return View(patient);
         }
 
-        // POST: Patient/Edit/5
-        // To protect from overposting attacks, enable the specific properties you want to bind to.
-        // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
+        
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Id,FirstName,LastName,Birthday,Gender,PhoneNumber,Email,Address,RegisterationDate,SSN")] Patient patient)
+        public async Task<IActionResult> Edit(long id, [Bind("Id,FirstName,LastName,Birthday,Gender,PhoneNumber,Email,Address,RegisterationDate,SSN,Country")] Patient patient)
         {
             if (id != patient.Id)
             {
@@ -128,8 +133,11 @@ namespace Clinic.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+            ViewData["CountryModel"] = new SelectList(await this.GetCountry(), "name", "name");
+          
             return View(patient);
         }
+
 
         // GET: Patient/Delete/5
         public async Task<IActionResult> Delete(long? id)
@@ -177,7 +185,43 @@ namespace Clinic.Controllers
 
             return View(result);
         }
-    }
-    
-}
 
+
+
+        public async Task<IEnumerable<CountryModel>> GetCountry()
+        {
+
+            string url = "https://restcountries.eu/rest/v1/all";
+            List<CountryModel> Country = new List<CountryModel>();
+
+            // Web Request with the given url.
+            WebRequest request = WebRequest.Create(url);
+            request.Credentials = CredentialCache.DefaultCredentials;
+
+            WebResponse response = request.GetResponse();
+
+            Stream dataStream = response.GetResponseStream();
+            StreamReader reader = new StreamReader(dataStream);
+
+            string jsonResponse = null;
+
+            // Store the json response into jsonResponse variable.
+            jsonResponse = reader.ReadLine();
+
+            if (jsonResponse != null)
+            {
+                // Deserialize the jsonRespose object to the CountryModel. You're getting a JSON array [].
+                List<CountryModel> countryModel = Newtonsoft.Json.JsonConvert.DeserializeObject<List<CountryModel>>(jsonResponse);
+
+                // Set the List Item with the countries.
+                IEnumerable<SelectListItem> countries = countryModel.Select(x => new SelectListItem() { Value = x.name, Text = x.name });
+
+
+                // Create a ViewBag property with the final content.
+                ViewBag.Countries = countries;
+            }
+            return Country;
+        }
+    }
+
+}

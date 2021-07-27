@@ -33,6 +33,7 @@ namespace Clinic.Models
         //[RegularExpression("^\\d{9}$")]
         public long SSN { get; set; }
         public List<Appointment> Appointments { get; set; }
+        public string Country { get; set; }
         public List<MedicalHistory> MedicalHistorie { get; set; }
         [NotMapped]
         public string PatientName

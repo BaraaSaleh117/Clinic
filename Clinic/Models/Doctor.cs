@@ -41,6 +41,8 @@ namespace Clinic.Models
         public long SpecializationId { get; set; }
         [ForeignKey("SpecializationId")]
         public Specialization Specialization { get; set; }
+       
+        public string Country { get; set; }
         [NotMapped]
         public string DoctorName
         {
@@ -58,5 +60,6 @@ namespace Clinic.Models
             }
 
         }
+        
     }
 }
